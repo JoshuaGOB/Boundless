@@ -1,11 +1,12 @@
 name: convert_images
-on: 
+on:
   workflow_dispatch:
   push:
     branches:
       - main
     paths:
-      - images/uploads/**
+      - 'images/uploads/**'
+
 permissions:
   contents: write
 
@@ -17,25 +18,29 @@ jobs:
   convertimages:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - uses: glenrobson/iiif-tiler-action@main
+          fetch-depth: 0 # Fetches all history so push/pull works smoothly
+
+      - name: IIIF Tiling
+        uses: glenrobson/iiif-tiler-action@main
         with:
           input-dir-v2: images/uploads/2
           input-dir-v3: images/uploads/3
           output-dir: images
           manifest: images/manifest.json
-      - name: commit files
+
+      - name: Commit and Push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git config pull.rebase false
-          git pull origin main
           git add -A
-          git commit -m "Adding IIIF image to repository" -a || echo "No changes to commit"
-      - name: push changes
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main 
+          # Only commit and push if there are actual changes
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Adding IIIF image to repository"
+            git pull --rebase origin main
+            git push origin main
+          else
+            echo "No changes to commit"
+          fi
